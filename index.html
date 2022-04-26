@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ラベル屋さん用データ生成</title>
+  </head>
+  <style>
+    .inactive {
+      cursor: not-allowed;
+      color: black;
+    }
+  </style>
+  <body>
+    <h2>1. 画像のあるフォルダーをフルパスで記入してください</h2>
+    <input type="text" id="full-path" />
+
+    <h2>2. 画像のあるフォルダーを選択してください</h2>
+    <input id="img-dir" type="file" webkitdirectory />
+
+    <input type="button" id="run" value="実行する" />
+
+    <hr />
+
+    <h2>ステータス: <span id="status"></span></h2>
+    <pre id="body"></pre>
+
+    <hr />
+
+    <h2>ダウンロード</h2>
+    <ul>
+      <li>
+        講習の必要がないもの
+        <a
+          id="normal-dl"
+          class="inactive"
+          download="講習の必要がないもの.csv"
+          href="#"
+          >ダウンロード</a
+        >
+      </li>
+      <li>
+        講習の必要があるもの
+        <a
+          id="need-dl"
+          class="inactive"
+          download="講習の必要があるもの.csv"
+          href="#"
+          >ダウンロード</a
+        >
+      </li>
+      <li>
+        TAの立ち会いが必要なもの
+        <a
+          id="ta-dl"
+          class="inactive"
+          download="TAの立ち会いが必要なもの.csv"
+          href="#"
+          >ダウンロード</a
+        >
+      </li>
+      <li>
+        教員の立ち会いが必要なもの
+        <a
+          id="teacher-dl"
+          class="inactive"
+          download="教員の立ち会いが必要なもの.csv"
+          href="#"
+          >ダウンロード</a
+        >
+      </li>
+    </ul>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <script>
+      Set.prototype.difference = function (setB) {
+        const difference = new Set(this);
+        for (let elem of setB) {
+          difference.delete(elem);
+        }
+        return difference;
+      };
+
+      const IS_MAC = window.navigator.userAgentData.platform === "macOS";
+      const PATH_DELIMITER = IS_MAC ? "/" : "\\";
+
+      const fullPathEl = document.getElementById("full-path");
+      const imgDirEl = document.getElementById("img-dir");
+      const runButtonEl = document.getElementById("run");
+      const statusEl = document.getElementById("status");
+      const bodyEl = document.getElementById("body");
+
+      const fetchAndParseCSV = async () => {
+        const url =
+          "https://docs.google.com/spreadsheets/d/17bUAbWthyCc2-FSCc7-p73wFMiaLZpDEs0srM2-5d5o/gviz/tq?tqx=out:csv&gid=0";
+        const res = await fetch(url);
+        const csvString = await res.text();
+        const parsedCsv = Papa.parse(csvString, {
+          header: true,
+        });
+        const csv = parsedCsv.data
+          .filter((csvRow) => csvRow["設備名"] !== "")
+          .map((csvRow) => {
+            csvRow["要講習"] = csvRow["要講習"] === "TRUE" ? "要講習" : "";
+            csvRow["TAの立ち会い"] =
+              csvRow["TAの立ち会い"] === "TRUE" ? "TAの立ち会い" : "";
+            csvRow["教員の立ち会い"] =
+              csvRow["教員の立ち会い"] === "TRUE" ? "教員の立ち会い" : "";
+
+            csvRow["ScrapboxのURL"] = "ScrapboxのURL";
+            csvRow["使い方"] = "";
+            return csvRow;
+          });
+
+        return csv;
+      };
+
+      const addImageFilePathToCSV = (csv, dirPath) => {
+        if (!dirPath.endsWith(PATH_DELIMITER)) dirPath += PATH_DELIMITER;
+        return csv.map((csvRow) => {
+          csvRow["画像"] = `${dirPath}${csvRow["バーコード"]}.jpg`;
+          return csvRow;
+        });
+      };
+
+      const separateData = (csv) => {
+        const normal = csv.filter(
+          (csvRow) =>
+            !csvRow["要講習"] &&
+            !csvRow["TAの立ち会い"] &&
+            !csvRow["教員の立ち会い"]
+        );
+        const need = csv.filter(
+          (csvRow) =>
+            csvRow["要講習"] &&
+            !csvRow["TAの立ち会い"] &&
+            !csvRow["教員の立ち会い"]
+        );
+        const ta = csv.filter((d) => d["TAの立ち会い"]);
+        const teacher = csv.filter((d) => d["教員の立ち会い"]);
+
+        const data = { normal, need, ta, teacher };
+        return data;
+      };
+
+      const validateBeforeRun = ({ equipments, localFilenames }) => {
+        if (fullPathEl.value === "") {
+          statusEl.textContent =
+            "画像のあるディレクトリーのフルパスが入力されていません。";
+          return false;
+        }
+
+        if (!localFilenames) {
+          statusEl.textContent =
+            "画像のあるディレクトリーが選択されていません。";
+          return false;
+        }
+
+        const result = equipments.difference(new Set(localFilenames));
+        if (result.size !== 0) {
+          statusEl.textContent =
+            "次の画像ファイルがありません。用意した後にページを更新し再度実行してください。";
+          bodyEl.textContent = Array.from(result.values())
+            .map((v) => "・" + v)
+            .join("\n");
+          return false;
+        }
+
+        statusEl.textContent = "問題ありません。";
+        return true;
+      };
+
+      const handleDownload = (content, id) => {
+        const bom = new Uint8Array([0xef, 0xbb, 0xbf]);
+        const blob = new Blob([bom, content], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const el = document.getElementById(id);
+        el.href = url;
+        el.classList.remove("inactive");
+      };
+
+      (async () => {
+        const csv = await fetchAndParseCSV();
+
+        let localFilenames;
+        imgDirEl.addEventListener("change", (e) => {
+          localFilenames = Array.from(e.target.files).map((file) => file.name);
+        });
+
+        runButtonEl.addEventListener("click", () => {
+          const equipments = new Set(
+            csv.map((row) => row["バーコード"] + ".jpg")
+          );
+          const isValid = validateBeforeRun({ equipments, localFilenames });
+          if (!isValid) return;
+
+          const addedImagesCSV = addImageFilePathToCSV(csv, fullPathEl.value);
+          const { normal, need, ta, teacher } = separateData(csv);
+          // console.log(ta);
+          const normalCsv = Papa.unparse(normal, { quotes: true });
+          const needCsv = Papa.unparse(need, { quotes: true });
+          const taCsv = Papa.unparse(ta, { quotes: true });
+          const teacherCsv = Papa.unparse(teacher, { quotes: true });
+
+          handleDownload(normalCsv, "normal-dl");
+          handleDownload(needCsv, "need-dl");
+          handleDownload(taCsv, "ta-dl");
+          handleDownload(teacherCsv, "teacher-dl");
+        });
+      })();
+    </script>
+  </body>
+</html>

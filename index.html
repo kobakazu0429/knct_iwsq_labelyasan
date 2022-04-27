@@ -13,12 +13,15 @@
     }
   </style>
   <body>
+    <p>OS: <span id="os"></span></p>
+
     <h2>1. 画像のあるフォルダーをフルパスで記入してください</h2>
     <input type="text" id="full-path" />
 
     <h2>2. 画像のあるフォルダーを選択してください</h2>
     <input id="img-dir" type="file" webkitdirectory />
 
+    <h2>3. 次のボタンを押す</h2>
     <input type="button" id="run" value="実行する" />
 
     <hr />
@@ -28,7 +31,7 @@
 
     <hr />
 
-    <h2>ダウンロード</h2>
+    <h2>ダウンロード：[実行する]を押すとダウンロードできるようになります</h2>
     <ul>
       <li>
         講習の必要がないもの
@@ -82,8 +85,11 @@
         return difference;
       };
 
-      const IS_MAC = window.navigator.userAgentData.platform === "macOS";
-      const PATH_DELIMITER = IS_MAC ? "/" : "\\";
+      const os = window.navigator.userAgentData.platform;
+      document.getElementById("os").textContent = os;
+
+      const IS_WINDOWS = os === "Windows";
+      const PATH_DELIMITER = IS_WINDOWS ? "\\" : "/";
 
       const fullPathEl = document.getElementById("full-path");
       const imgDirEl = document.getElementById("img-dir");

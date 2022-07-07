@@ -73,6 +73,12 @@
           >ダウンロード</a
         >
       </li>
+      <li>
+        すべて
+        <a id="all-dl" class="inactive" download="すべて.csv" href="#"
+          >ダウンロード</a
+        >
+      </li>
     </ul>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
@@ -146,7 +152,7 @@
         const ta = csv.filter((d) => d["TAの立ち会い"]);
         const teacher = csv.filter((d) => d["教員の立ち会い"]);
 
-        const data = { normal, need, ta, teacher };
+        const data = { normal, need, ta, teacher, all: csv };
         return data;
       };
 
@@ -202,17 +208,19 @@
           if (!isValid) return;
 
           const addedImagesCSV = addImageFilePathToCSV(csv, fullPathEl.value);
-          const { normal, need, ta, teacher } = separateData(csv);
+          const { normal, need, ta, teacher, all } = separateData(csv);
           // console.log(ta);
           const normalCsv = Papa.unparse(normal, { quotes: true });
           const needCsv = Papa.unparse(need, { quotes: true });
           const taCsv = Papa.unparse(ta, { quotes: true });
           const teacherCsv = Papa.unparse(teacher, { quotes: true });
+          const allCsv = Papa.unparse(all, { quotes: true });
 
           handleDownload(normalCsv, "normal-dl");
           handleDownload(needCsv, "need-dl");
           handleDownload(taCsv, "ta-dl");
           handleDownload(teacherCsv, "teacher-dl");
+          handleDownload(allCsv, "all-dl");
         });
       })();
     </script>
